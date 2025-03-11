@@ -18,6 +18,8 @@ async def test_prompt_node(mock_create_chat_prompt_template, state):
     updated_state = await prompt_node(state)
 
     assert updated_state["prompt"] == "Mocked Prompt"
+
+    
     mock_create_chat_prompt_template.assert_called_once_with(
         state["context"], state["question"]
     )

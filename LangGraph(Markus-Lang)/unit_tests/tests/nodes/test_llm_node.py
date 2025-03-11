@@ -6,20 +6,24 @@ from langchain_core.messages import AIMessage
 from unit_tests.code_to_test import llm_node
 
 """
-PyTest Basics
-PyTest is a popular testing framework for Python that makes it easy to write simple and scalable test cases. Here are some key PyTest concepts used in this test:
+@patch("unit_tests.code_to_test.create_llm"): so now, instead of create_llm() the mock_create_llm() will be run .  
 
-Test Discovery: PyTest automatically finds test files that start with test_ or end with _test.py.
-Fixtures: These are reusable pieces of test setup/data that can be used across multiple tests. In your code, the state parameter is a fixture defined in conftest.py.
-Decorators: Those @ symbols before the function modify how the test works.
-Assertions: The assert statements verify that your code behaves as expected.
-Mocking: Replacing real objects with fake ones for testing purposes.
+@pytest.mark.asyncio: This marks the test as asynchronous, allowing pytest to properly handle the async/await syntax.
 """
 
 """
-@patch: Replaces the real create_llm function with a mock. The mock is passed as the first parameter to the test function.
-@pytest.mark.asyncio: Tells pytest that this is an asynchronous test.
-state: This comes from a fixture defined in conftest.py:
+The function takes two parameters:
+
+mock_create_llm: The mocked version of the create_llm function
+state: This comes from a pytest fixture defined in conftest.py, providing a standard test state
+"""
+
+"""
+read the test method mockings backward to understand better, 
+meaning, first the llm_model will be called, 
+then, mock_create_llm will be called instead of create_llm
+then it will return what? we mock it ...
+like this ...
 """
 @patch("unit_tests.code_to_test.create_llm")
 @pytest.mark.asyncio
@@ -29,9 +33,6 @@ async def test_llm_node(mock_create_llm, state):
 
     mock_llm: A mock for the LLM model
     mock_response: A mock for the response from the LLM
-
-    When mock_llm.ainvoke() is called, it returns mock_response
-    When create_llm() is called, it returns mock_llm
 
     Example: If the real code calls model = create_llm() and then response = await model.ainvoke(...), it will actually get our mock objects instead.
     """
@@ -47,42 +48,58 @@ async def test_llm_node(mock_create_llm, state):
     mock_llm = AsyncMock()
     mock_response = AsyncMock()
 
+
+
+    # saying mock_response will have a content property. 
     mock_response.content = "Mocked AI response"
 
-    """
-    You're not calling a pre-existing method. Instead:
-
-    Accessing mock_llm.ainvoke automatically creates an attribute called "ainvoke" on your mock
-    This new attribute is itself a mock object
-    Setting .return_value tells this mock what to return when it's called
-    """
+    # saying mock_llm will have an method aiinvoke and will have a return value mock_response
     mock_llm.ainvoke.return_value = mock_response
+
+    # saying that mock_llm will have a return value: mock_llm 
     mock_create_llm.return_value = mock_llm
 
-    """
-    The following occurs:
+    
 
-    llm is actually our mock_llm
-    The code calls .ainvoke() on it with some parameters
-    The mock:
-
-    Records this call (parameters, times called, etc.)
-    Returns the configured mock_response object
-
-
-    Since we're in an async function with await, AsyncMock makes sure this works properly
-    """
-
+    """ fake creating messages property, explained below. """
     mock_prompt = MagicMock()
+
+    """
+    saying mock_prompt will have a message property 
+    as it will be accessed in the llm_node() .
+    """
     mock_prompt.messages = state["messages"]
+
+    """
+    Updating the fixture state: 
+    the llm_node method runs with the fixture state as the parameter in test.
+    not the actual state. so,
+    when the llm_node method calls the state['prompt'] inside the aiinvoke, 
+    then it will get the mcok_prompt, as we updated the state['prompt'] here.
+
+    so that's why now, 
+    await llm.ainvoke(state["prompt"].messages) 
+    in the llm_node method, it will access .messages, 
+    so we are fake creating a .messages property to the mock_prompt. 
+
+    though theres a mistake: state['prompt'] actually is a str type
+    but  await llm.ainvoke(state["prompt"].messages) accesses .messages 
+    which will throw and error. 
+    but in the test it will pass, as we are fake creating the .messages property. 
+    just above.
+
+    """
     state["prompt"] = mock_prompt
 
+    # calling the actual method with the fixture state. 
     updated_state = await llm_node(state)
 
+    # now checking the response is matching with what should be the output of the actual llm_node() method.
+    # with our fake data.
     assert updated_state["answer"] == "Mocked AI response"
     assert updated_state["messages"][-1] == AIMessage(content="Mocked AI response")
 
 
-    #making sure these were called only once. 
+    # making sure these were called only once. 
     mock_llm.ainvoke.assert_called_once_with(state["messages"])
     mock_create_llm.assert_called_once()
