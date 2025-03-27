@@ -46,7 +46,7 @@ def create_current_club_agent():
 
         system_message = SystemMessage(
             content="""You are an agent tasked with determining the current club of a player.
-If the current club is mentioned, return it. Otherwise, return 'Current club information not available.'"""
+            If the current club is mentioned, return it. Otherwise, return 'Current club information not available.'"""
         )
 
         response = await model_current_club.ainvoke([system_message] + local_messages)

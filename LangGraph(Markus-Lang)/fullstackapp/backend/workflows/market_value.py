@@ -48,7 +48,7 @@ def create_market_value_agent():
 
         system_message = SystemMessage(
             content="""You are an agent tasked with determining the market value of a player.
-If the market value is mentioned, return it. Otherwise, return 'Market value information not available.'"""
+            If the market value is mentioned, return it. Otherwise, return 'Market value information not available.'"""
         )
 
         response = await model_market_value.ainvoke([system_message] + local_messages)
